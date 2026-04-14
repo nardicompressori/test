@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Nardi Compressori – Dew Point Calculator</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --red:#CC0000;--bg:#f0f0f0;--white:#fff;
+  --text:#1a1a1a;--t2:#555;--t3:#888;
+  --bdr:#ddd;--bdr2:#e4e4e4;--gray:#f5f5f5;
+  --font:'Segoe UI',system-ui,sans-serif;
+  --mono:'Courier New',monospace;
+  --r:3px;
+}
+html,body{height:100%;background:var(--bg)}
+body{font-family:var(--font);color:var(--text);
+  display:flex;flex-direction:column;font-size:13px;overflow:hidden}
+
+/* ── HEADER ── */
+.hdr{
+  background:#fff;
+  border-bottom:3px solid var(--red);
+  display:flex;
+  align-items:center;
+  height:70px; /* aumentato */
+  flex-shrink:0;
+  z-index:200;
+}
+.hdr-logo{
+  padding:6px 14px;background:#fff;border-right:1px solid var(--bdr2);
+  display:flex;align-items:center;flex-shrink:0;
+}
+.hdr-logo svg{display:block}
+.hdr-title{flex:1;text-align:center;padding:0 12px;min-width:0}
+.hdr-title h1{font-size:.88rem;font-weight:800;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr-title p{font-size:.58rem;letter-spacing:.1em;color:var(--t3);
+  text-transform:uppercase;font-weight:600;margin-top:1px;white-space:nowrap}
+.hdr-ctrls{display:flex;align-items:center;gap:7px;padding:0 12px;flex-shrink:0}
+
+/* ── LANG DROPDOWN ── */
+.lang-wrap{position:relative;user-select:none;z-index:300}
+.lang-btn{
+  display:flex;align-items:center;gap:5px;min-width:100px;
+  background:#fff;border:1px solid #ccc;border-radius:var(--r);
+  padding:4px 7px;cursor:pointer;font-size:.72rem;font-weight:700;color:var(--text);
+  transition:border-color .12s;white-space:nowrap;
+}
+.lang-btn:hover{border-color:var(--red)}
+.lang-btn .flag{font-size:.85rem;line-height:1}
+.lang-btn .caret{margin-left:auto;font-size:.55rem;color:var(--t3);transition:transform .12s}
+.lang-btn.open .caret{transform:rotate(180deg)}
+.lang-menu{
+  position:absolute;top:calc(100% + 3px);right:0;
+  background:#252525;border-radius:5px;overflow:hidden;
+  box-shadow:0 6px 20px rgba(0,0,0,.4);display:none;min-width:140px;
+}
+.lang-menu.open{display:block}
+.lang-opt{
+  display:flex;align-items:center;gap:9px;padding:7px 13px;
+  cursor:pointer;color:#ccc;font-size:.75rem;font-weight:600;
+  transition:background .1s;white-space:nowrap;
+}
+.lang-opt:hover{background:#333}
+.lang-opt.active{color:#fff;background:#1a1a1a}
+.lang-opt .flag{font-size:.88rem}
+
+/* ── UNIT TOGGLE ── */
+.unit-toggle{display:flex;border:1px solid #ccc;border-radius:var(--r);overflow:hidden}
+.unit-btn{
+  background:#fff;border:none;padding:4px 12px;font-size:.71rem;
+  font-weight:700;letter-spacing:.05em;cursor:pointer;color:var(--t2);
+  transition:background .12s,color .12s;
+}
+.unit-btn.active{background:var(--red);color:#fff}
+.unit-btn:not(.active):hover{background:var(--gray)}
+
+/* ── APP BODY (two-column) ── */
+.app-wrap{flex:1;display:flex;overflow:hidden;min-height:0}
+
+/* ── LEFT PANEL ── */
+.left{
+  width:230px;flex-shrink:0;background:#fff;border-right:1px solid var(--bdr2);
+  display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;
+}
+.panel-lbl{
+  padding:9px 14px 6px;font-size:.6rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.12em;color:var(--t3);
+  border-bottom:1px solid var(--bdr2);flex-shrink:0;
+}
+.inp-grp{
+  padding:10px 14px;border-bottom:1px solid var(--bdr2);
+  display:flex;flex-direction:column;gap:4px;
+}
+.inp-grp label{font-size:.6rem;font-weight:800;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--t3)}
+.inp-wrap{
+  display:flex;align-items:center;border:1.5px solid #d0d0d0;
+  border-radius:var(--r);background:#fafafa;overflow:hidden;
+  transition:border-color .12s;
+}
+.inp-wrap:focus-within{border-color:var(--red);background:#fff}
+.inp-wrap input{
+  flex:1;border:none;outline:none;background:none;
+  padding:6px 8px;font-size:.95rem;font-weight:700;
+  font-family:var(--mono);color:var(--text);min-width:0;
+  -moz-appearance:textfield;
+}
+.inp-wrap input::-webkit-inner-spin-button,
+.inp-wrap input::-webkit-outer-spin-button{-webkit-appearance:inner-spin-button;opacity:.5}
+.inp-unit{padding:0 9px 0 2px;font-size:.72rem;font-weight:800;color:var(--red);white-space:nowrap}
+.inp-hint{font-size:.59rem;color:var(--t3);line-height:1.35}
+
+/* ── RIGHT PANEL ── */
+.right{
+  flex:1;display:flex;flex-direction:column;
+  padding:8px;gap:7px;overflow:hidden;min-width:0;min-height:0;
+}
+
+/* ── CHART CARD ── */
+.chart-card{
+  background:#fff;border:1px solid var(--bdr);border-radius:var(--r);
+  flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;
+}
+.chart-head{
+  padding:5px 12px;border-bottom:1px solid var(--bdr2);flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+  background:#fafafa;
+}
+.chart-lbl{
+  font-size:.59rem;font-weight:800;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--t2);
+  display:flex;align-items:center;gap:7px;
+}
+.chart-lbl::before{content:'';width:3px;height:11px;background:var(--red);border-radius:2px;flex-shrink:0}
+.zoom-row{display:flex;align-items:center;gap:7px}
+.zoom-hint{font-size:.57rem;color:var(--t3);font-style:italic}
+.zoom-rst{
+  background:none;border:1px solid #ccc;border-radius:var(--r);
+  padding:2px 8px;font-size:.59rem;font-weight:700;color:var(--t2);cursor:pointer;
+  display:none;transition:all .12s;
+}
+.zoom-rst:hover{background:var(--red);color:#fff;border-color:var(--red)}
+.chart-body{flex:1;position:relative;min-height:0;overflow:hidden}
+#dpCanvas{display:block;position:absolute;inset:0;touch-action:none}
+
+/* ── TOOLTIP ── */
+.tip{
+  position:absolute;background:#1a1a1a;color:#fff;
+  border-radius:4px;padding:7px 11px;font-size:.74rem;
+  pointer-events:none;opacity:0;transition:opacity .1s;
+  z-index:20;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.3);
+}
+.tip-p{font-size:.95rem;font-weight:800;color:var(--red);font-family:var(--mono)}
+.tip-t{color:#aaa;font-size:.68rem;font-family:var(--mono);margin-top:2px}
+
+/* ── TABLE CARD ── */
+.tbl-card{background:#fff;border:1px solid var(--bdr);border-radius:var(--r);
+  flex-shrink:0;overflow-x:auto}
+.res-tbl{width:100%;border-collapse:collapse;font-size:.76rem;white-space:nowrap}
+.res-tbl th{background:#f6f6f6;color:var(--t3);padding:4px 10px;
+  text-align:left;font-size:.57rem;font-weight:800;text-transform:uppercase;
+  letter-spacing:.1em;border-bottom:2px solid var(--bdr2)}
+.res-tbl td{padding:4px 10px;border-bottom:1px solid var(--bdr2);vertical-align:middle}
+.res-tbl tr:last-child td{border-bottom:none}
+.res-tbl tr:hover td{background:#fafafa}
+.tn{color:var(--t2);font-size:.71rem;font-weight:600}
+.tv{font-family:var(--mono);font-size:.83rem;font-weight:800}
+.tv.r{color:var(--red)}
+.tnote{color:var(--t3);font-size:.62rem}
+
+/* ── FOOTER ── */
+.ftr{
+  text-align:center;font-size:.56rem;color:var(--t3);padding:3px;
+  border-top:1px solid var(--bdr);flex-shrink:0;background:#fff;
+  letter-spacing:.04em;
+}
+
+/* ══════════════════════════════════
+   MOBILE  (≤ 640px)
+══════════════════════════════════ */
+@media(max-width:640px){
+  body{overflow-y:auto;overflow-x:hidden}
+  .app-wrap{flex-direction:column;overflow:visible}
+  .left{width:100%;border-right:none;border-bottom:1px solid var(--bdr2);
+    flex-direction:row;flex-wrap:wrap;overflow:visible}
+  .panel-lbl{width:100%}
+  .inp-grp{flex:1;min-width:0;border-bottom:none;
+    border-right:1px solid var(--bdr2)}
+  .inp-grp:last-child{border-right:none}
+  .inp-hint{display:none}
+  .right{flex:none;padding:6px;gap:5px;overflow:visible;height:auto}
+  .chart-card{flex:none;height:240px}
+  .tbl-card{overflow-x:visible}
+  .res-tbl{white-space:normal;width:100%}
+  .res-tbl thead{display:none}
+  .res-tbl tr{display:grid;grid-template-columns:1fr 1fr;
+    border-bottom:2px solid var(--bdr2);padding:2px 0}
+  .res-tbl td{border:none;padding:3px 6px}
+  .tnote{display:none}
+  .hdr-title{display:none}
+  .lang-btn{min-width:44px;font-size:.68rem;padding:3px 6px}
+  .lang-btn .lname{display:none}
+  .unit-btn{padding:3px 9px;font-size:.67rem}
+  .hdr{height:44px}
+  .hdr-logo svg{height:30px}
+  .inp-grp label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .left{align-items:stretch}
+  .zoom-hint{display:none}
+}
+@media(max-width:380px){
+  .inp-grp{min-width:100%;border-right:none;border-bottom:1px solid var(--bdr2)}
+  .lang-btn{min-width:60px}
+  .lang-btn .lname{display:none}
+  .unit-btn{padding:3px 7px}
+}
+
+/* ══════════════════════════════════
+   TABLET  (641px – 900px)
+══════════════════════════════════ */
+@media(min-width:641px) and (max-width:900px){
+  body{overflow-y:auto;overflow-x:hidden}
+  .app-wrap{flex-direction:column;overflow:visible}
+  .left{
+    width:100%;border-right:none;border-bottom:1px solid var(--bdr2);
+    flex-direction:row;flex-wrap:wrap;overflow:visible
+  }
+  .panel-lbl{width:100%}
+  .inp-grp{
+    flex:1;min-width:180px;border-bottom:none;
+    border-right:1px solid var(--bdr2)
+  }
+  .inp-grp:last-child{border-right:none}
+  .right{flex:none;padding:8px;gap:7px;overflow:visible;height:auto}
+  .chart-card{flex:none;height:340px}
+  .tbl-card{overflow-x:auto}
+  .zoom-hint{font-size:.55rem}
+  .hdr-title p{font-size:.55rem}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-logo">
+    <img src="logo.png" alt="Nardi Compressori" height="36" style="display:block">
+  </div>
+  <div class="hdr-title">
+    <h1 id="hdr-t">CALCOLATORE PUNTO DI RUGIADA</h1>
+    <p id="hdr-s">Analisi Umidità Aria Compressa</p>
+  </div>
+  <div class="hdr-ctrls">
+    <div class="lang-wrap" id="LW">
+      <button class="lang-btn" id="LB" onclick="toggleLang(event)">
+        <span class="flag" id="LF">🇮🇹</span>
+        <span class="lname" id="LN">Italiano</span>
+        <span class="caret">▼</span>
+      </button>
+      <div class="lang-menu" id="LM"></div>
+    </div>
+    <div class="unit-toggle">
+      <button class="unit-btn active" id="btnM" onclick="setU('metric')">Metric</button>
+      <button class="unit-btn" id="btnI" onclick="setU('imperial')">Imperial</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP BODY -->
+<div class="app-wrap">
+  <!-- LEFT PANEL: Inputs -->
+  <div class="left">
+    <div class="panel-lbl" id="panel-lbl">Parametri</div>
+    <div class="inp-grp">
+      <label id="lP">Pressione Relativa</label>
+      <div class="inp-wrap">
+        <input type="number" id="iP" value="200" step="1">
+        <span class="inp-unit" id="uP">bar</span>
+      </div>
+      <div class="inp-hint" id="hP">Pressione relativa dove è stato misurato il punto di rugiada</div>
+    </div>
+    <div class="inp-grp">
+      <label id="lT">Punto di Rugiada di Pressione</label>
+      <div class="inp-wrap">
+        <input type="number" id="iT" value="-40" step="0.5">
+        <span class="inp-unit" id="uT">°C</span>
+      </div>
+      <div class="inp-hint" id="hT">Punto di rugiada di pressione misurato</div>
+    </div>
+    <div class="inp-grp">
+      <label id="lG">Temperatura del Gas</label>
+      <div class="inp-wrap">
+        <input type="number" id="iG" value="20" step="1">
+        <span class="inp-unit" id="uG">°C</span>
+      </div>
+      <div class="inp-hint" id="hG">Temperatura effettiva del gas (per UR)</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL: Chart + Table -->
+  <div class="right">
+    <div class="chart-card">
+      <div class="chart-head">
+        <div class="chart-lbl" id="chartLbl">Punto di Rugiada vs Pressione Relativa</div>
+        <div class="zoom-row">
+          <span class="zoom-hint" id="zHint">← trascina per ingrandire X · doppio clic per reset →</span>
+          <button class="zoom-rst" id="zRst" onclick="resetZoom()">↺ Reset</button>
+        </div>
+      </div>
+      <div class="chart-body" id="chartBody">
+        <canvas id="dpCanvas"></canvas>
+        <div class="tip" id="tip">
+          <div class="tip-p" id="tipP">—</div>
+          <div class="tip-t" id="tipT">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tbl-card">
+      <table class="res-tbl">
+        <thead>
+          <tr>
+            <th id="th1">Parametro</th><th id="th2">Valore</th>
+            <th id="th3">Parametro</th><th id="th4">Valore</th>
+            <th id="th5">Note</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="ftr" id="ftr">© 2024 Nardi Compressori S.r.l. — Formula di Magnus (compatibile ASHRAE)</div>
+
+<script>
+/* ══ TRANSLATIONS ══ */
+const L={
+  IT:{f:'🇮🇹',n:'Italiano',
+    hT:'CALCOLATORE PUNTO DI RUGIADA',hS:'Analisi Umidità Aria Compressa',
+    pnl:'Parametri',
+    lP:'Pressione Relativa',lT:'Punto di Rugiada di Pressione',lG:'Temperatura del Gas',
+    hP:'Pressione relativa dove è stato misurato il punto di rugiada',
+    hT2:'Punto di rugiada di pressione misurato',hG:'Temperatura effettiva del gas (per UR)',
+    cL:'Punto di Rugiada vs Pressione Relativa',
+    zH:'← trascina per ingrandire X · doppio clic per reset →',zR:'↺ Reset',
+    th:['Parametro','Valore','Parametro','Valore','Note'],
+    r:[['Pressione relativa input','Punto di rugiada atmosferico','Punto di rugiada di pressione','Pressione parziale H₂O'],
+       ['Conc. ppm(v)','Conc. ppm(w)','Umidità assoluta','Umidità relativa']],
+    no:['Pressione manometrica fornita','A 1 atm (101.325 kPa)',
+        'Alla pressione di input','Pressione parziale H₂O al punto di rugiada',
+        'Parti per milione in volume','Parti per milione in massa',
+        'Densità vapore acqueo al punto di rugiada','Alla temperatura effettiva del gas'],
+    ft:'© 2024 Nardi Compressori S.r.l. — Formula di Magnus (compatibile ASHRAE)'},
+  EN:{f:'🇬🇧',n:'English',
+    hT:'DEW POINT CALCULATOR',hS:'Compressed Air Moisture Analysis',
+    pnl:'Parameters',
+    lP:'Gauge Pressure',lT:'Pressure Dew Point',lG:'Gas Temperature',
+    hP:'Relative pressure where dew point was measured',
+    hT2:'Measured pressure dew point',hG:'Actual gas temperature (for RH)',
+    cL:'Pressure Dew Point vs Gauge Pressure',
+    zH:'← drag to zoom X · double-click to reset →',zR:'↺ Reset',
+    th:['Parameter','Value','Parameter','Value','Note'],
+    r:[['Input gauge pressure','Atmospheric dew point','Pressure dew point','H₂O partial pressure'],
+       ['Conc. ppm(v)','Conc. ppm(w)','Absolute humidity','Relative humidity']],
+    no:['Supplied gauge pressure','At 1 atm (101.325 kPa)',
+        'At input pressure','H₂O partial pressure at dew point',
+        'Parts per million (molar)','Parts per million (mass)',
+        'Water vapor density at dew point','At actual gas temperature'],
+    ft:'© 2024 Nardi Compressori S.r.l. — Magnus formula (ASHRAE compatible)'},
+  FR:{f:'🇫🇷',n:'Français',
+    hT:'CALCULATEUR POINT DE ROSÉE',hS:'Analyse Humidité Air Comprimé',
+    pnl:'Paramètres',
+    lP:'Pression Relative',lT:'Point de Rosée de Pression',lG:'Température du Gaz',
+    hP:'Pression manométrique où le point de rosée a été mesuré',
+    hT2:'Point de rosée de pression mesuré',hG:'Température réelle du gaz (pour HR)',
+    cL:'Point de Rosée vs Pression Relative',
+    zH:'← glisser pour zoomer X · double-clic pour réinitialiser →',zR:'↺ Reset',
+    th:['Paramètre','Valeur','Paramètre','Valeur','Note'],
+    r:[['Pression relative entrée','Point de rosée atmosphérique','Point de rosée de pression','Pression partielle H₂O'],
+       ['Conc. ppm(v)','Conc. ppm(w)','Humidité absolue','Humidité relative']],
+    no:['Pression manométrique fournie','À 1 atm (101,325 kPa)',
+        'À la pression d\'entrée','Pression partielle H₂O',
+        'Parties par million (molaire)','Parties par million (masse)',
+        'Densité vapeur au point de rosée','À la temp. réelle du gaz'],
+    ft:'© 2024 Nardi Compressori S.r.l. — Formule Magnus (compatible ASHRAE)'},
+  DE:{f:'🇩🇪',n:'Deutsch',
+    hT:'TAUPUNKT-RECHNER',hS:'Feuchtigkeitsanalyse Druckluft',
+    pnl:'Parameter',
+    lP:'Überdruck',lT:'Drucktaupunkt',lG:'Gastemperatur',
+    hP:'Relativdruck, bei dem der Taupunkt gemessen wurde',
+    hT2:'Gemessener Drucktaupunkt',hG:'Tatsächliche Gastemperatur (für RF)',
+    cL:'Drucktaupunkt vs Überdruck',
+    zH:'← Ziehen für X-Zoom · Doppelklick zurücksetzen →',zR:'↺ Reset',
+    th:['Parameter','Wert','Parameter','Wert','Hinweis'],
+    r:[['Eingangsüberdruck','Atmosphärischer Taupunkt','Drucktaupunkt','Partialdruck H₂O'],
+       ['Konz. ppm(v)','Konz. ppm(w)','Absolute Feuchte','Relative Feuchte']],
+    no:['Eingeg. Manometerdruck','Bei 1 atm (101,325 kPa)',
+        'Beim Eingangsdruck','Partialdruck H₂O am Taupunkt',
+        'Teile/Million (molar)','Teile/Million (Masse)',
+        'Dampfdichte am Taupunkt','Bei tatsächl. Gastemperatur'],
+    ft:'© 2024 Nardi Compressori S.r.l. — Magnus-Formel (ASHRAE-kompatibel)'},
+  ES:{f:'🇪🇸',n:'Español',
+    hT:'CALCULADORA PUNTO DE ROCÍO',hS:'Análisis Humedad Aire Comprimido',
+    pnl:'Parámetros',
+    lP:'Presión Manométrica',lT:'Punto de Rocío de Presión',lG:'Temperatura del Gas',
+    hP:'Presión relativa donde se midió el punto de rocío',
+    hT2:'Punto de rocío de presión medido',hG:'Temperatura real del gas (para HR)',
+    cL:'Punto de Rocío vs Presión Manométrica',
+    zH:'← arrastrar para zoom X · doble clic para restablecer →',zR:'↺ Reset',
+    th:['Parámetro','Valor','Parámetro','Valor','Nota'],
+    r:[['Presión manométrica entrada','Punto de rocío atmosférico','Punto de rocío de presión','Presión parcial H₂O'],
+       ['Conc. ppm(v)','Conc. ppm(w)','Humedad absoluta','Humedad relativa']],
+    no:['Presión relativa suministrada','A 1 atm (101,325 kPa)',
+        'A la presión de entrada','Presión parcial H₂O',
+        'Partes por millón (molar)','Partes por millón (masa)',
+        'Densidad vapor en pto. rocío','A la temp. real del gas'],
+    ft:'© 2024 Nardi Compressori S.r.l. — Fórmula Magnus (compatible ASHRAE)'},
+  PT:{f:'🇵🇹',n:'Português',
+    hT:'CALCULADORA PONTO DE ORVALHO',hS:'Análise Humidade Ar Comprimido',
+    pnl:'Parâmetros',
+    lP:'Pressão Manométrica',lT:'Ponto de Orvalho de Pressão',lG:'Temperatura do Gás',
+    hP:'Pressão relativa onde o ponto de orvalho foi medido',
+    hT2:'Ponto de orvalho de pressão medido',hG:'Temperatura real do gás (para HR)',
+    cL:'Ponto de Orvalho vs Pressão Manométrica',
+    zH:'← arrastar para zoom X · duplo clique para repor →',zR:'↺ Reset',
+    th:['Parâmetro','Valor','Parâmetro','Valor','Nota'],
+    r:[['Pressão manométrica entrada','Ponto de orvalho atmosférico','Ponto de orvalho de pressão','Pressão parcial H₂O'],
+       ['Conc. ppm(v)','Conc. ppm(w)','Humidade absoluta','Humidade relativa']],
+    no:['Pressão relativa fornecida','A 1 atm (101,325 kPa)',
+        'À pressão de entrada','Pressão parcial H₂O',
+        'Partes por milhão (molar)','Partes por milhão (massa)',
+        'Densidade vapor no pto. orvalho','À temp. real do gás'],
+    ft:'© 2024 Nardi Compressori S.r.l. — Fórmula Magnus (compatível ASHRAE)'},
+  ZH:{f:'🇨🇳',n:'中文',
+    hT:'露点计算器',hS:'压缩空气湿度分析',
+    pnl:'参数',
+    lP:'表压',lT:'压力露点',lG:'气体温度',
+    hP:'测量露点时的相对压力',hT2:'测量的压力露点',hG:'气体实际温度（用于计算相对湿度）',
+    cL:'压力露点 vs 表压',
+    zH:'← 拖动放大X轴 · 双击重置 →',zR:'↺ 重置',
+    th:['参数','数值','参数','数值','说明'],
+    r:[['输入表压','大气露点','压力露点','水蒸气分压'],
+       ['浓度 ppm(v)','浓度 ppm(w)','绝对湿度','相对湿度']],
+    no:['提供的表压','1 atm下的露点',
+        '在输入压力下','露点处H₂O分压',
+        '体积百万分之一','质量百万分之一',
+        '露点处水蒸气密度','在实际气体温度下'],
+    ft:'© 2024 Nardi Compressori S.r.l. — 马格努斯公式（ASHRAE兼容）'},
+  RU:{f:'🇷🇺',n:'Русский',
+    hT:'КАЛЬКУЛЯТОР ТОЧКИ РОСЫ',hS:'Анализ влажности сжатого воздуха',
+    pnl:'Параметры',
+    lP:'Избыточное давление',lT:'Точка росы под давлением',lG:'Температура газа',
+    hP:'Относительное давление при измерении точки росы',
+    hT2:'Измеренная точка росы под давлением',hG:'Фактическая температура газа (для ОВ)',
+    cL:'Точка росы под давлением vs Избыточное давление',
+    zH:'← тащить для увеличения X · двойной клик для сброса →',zR:'↺ Сброс',
+    th:['Параметр','Значение','Параметр','Значение','Примечание'],
+    r:[['Вх. избыточное давл.','Атмосферная точка росы','Точка росы под давл.','Парц. давление H₂O'],
+       ['Конц. ppm(v)','Конц. ppm(w)','Абсолютная влажность','Относительная влажность']],
+    no:['Поданное манометрическое давл.','Точка росы при 1 атм',
+        'При входном давлении','Парц. давление H₂O в точке росы',
+        'Частей/миллион (молярн.)','Частей/миллион (массов.)',
+        'Плотность пара в точке росы','При фактической темп. газа'],
+    ft:'© 2024 Nardi Compressori S.r.l. — Формула Магнуса (совместимо с ASHRAE)'},
+  AR:{f:'🇸🇦',n:'العربية',dir:'rtl',
+    hT:'حاسبة نقطة الندى',hS:'تحليل رطوبة الهواء المضغوط',
+    pnl:'المعاملات',
+    lP:'الضغط الزائد',lT:'نقطة الندى تحت الضغط',lG:'درجة حرارة الغاز',
+    hP:'الضغط النسبي عند قياس نقطة الندى',
+    hT2:'نقطة الندى المقيسة تحت الضغط',hG:'درجة الحرارة الفعلية للغاز',
+    cL:'نقطة الندى تحت الضغط مقابل الضغط الزائد',
+    zH:'اسحب لتكبير محور X · انقر نقراً مزدوجاً للإعادة',zR:'↺ إعادة',
+    th:['المعامل','القيمة','المعامل','القيمة','ملاحظة'],
+    r:[['ضغط المدخل','نقطة الندى الجوية','نقطة الندى تحت الضغط','الضغط الجزئي H₂O'],
+       ['تركيز ppm(v)','تركيز ppm(w)','الرطوبة المطلقة','الرطوبة النسبية']],
+    no:['الضغط المانومتري','نقطة الندى عند 1 atm',
+        'عند ضغط الإدخال','الضغط الجزئي H₂O',
+        'جزء/مليون (حجمي)','جزء/مليون (كتلي)',
+        'كثافة البخار عند نقطة الندى','عند درجة حرارة الغاز الفعلية'],
+    ft:'© 2024 Nardi Compressori S.r.l. — معادلة ماغنوس (متوافق مع ASHRAE)'},
+};
+
+/* ══ STATE ══ */
+let lang='IT', units='metric';
+let zX={min:null,max:null};
+let lastR=null, hX=null;
+let drag={on:false,sx:0,cx:0};
+let dblT=0;
+
+/* ══ PHYSICS ══ */
+function esat(T){
+  return T>=0
+    ?6.1078*Math.exp(17.2694*T/(237.29+T))
+    :6.1078*Math.exp(17.0*T/(234.5+T));
+}
+function dewPt(e){
+  if(e<=0)return-200;
+  if(e>=6.1078){const l=Math.log(e/6.1078);return 237.29*l/(17.2694-l);}
+  const l=Math.log(e/6.1078);return 234.5*l/(17.0-l);
+}
+function compute(Pb,Td,Tg){
+  const Pa=1.01325,Ph=(Pb+Pa)*1000;
+  const ew=esat(Td),xw=ew/Ph;
+  const pv=xw*1e6,pw=pv*18.015/28.964;
+  const Tda=dewPt(xw*Pa*1000);
+  const ah=(ew*100)/(461.5*(Td+273.15))*1000;
+  const RH=Math.min((ew/esat(Tg))*100,100);
+  const pts=[];
+  for(let i=0;i<=400;i++){const p=500*i/400;pts.push({p,td:dewPt(xw*(p+Pa)*1000)});}
+  return{Pb,Td,Tg,ew,xw,pv,pw,Tda,ah,RH,pts};
+}
+const b2p=b=>b*14.5038,p2b=p=>p/14.5038;
+const c2f=c=>c*9/5+32,f2c=f=>(f-32)*5/9;
+const g2g=g=>g*0.0283168/0.0648;
+
+/* ══ CHART ══ */
+const cv=document.getElementById('dpCanvas');
+const ct=cv.getContext('2d');
+const PAD={t:12,r:14,b:42,l:54};
+let CW=0,CH=0;
+
+function resize(){
+  const b=document.getElementById('chartBody');
+  CW=b.clientWidth;CH=b.clientHeight;
+  const dpr=window.devicePixelRatio||1;
+  cv.width=CW*dpr;cv.height=CH*dpr;
+  cv.style.width=CW+'px';cv.style.height=CH+'px';
+  ct.scale(dpr,dpr);
+  if(lastR)render();
+}
+
+function getVR(){
+  const imp=units==='imperial';
+  const toP=v=>imp?b2p(v):v,toT=v=>imp?c2f(v):v;
+  const xFull=imp?b2p(500):500;
+  const xMin=zX.min!==null?zX.min:0;
+  const xMax=zX.max!==null?zX.max:xFull;
+  const vis=lastR.pts.filter(d=>{const dp=toP(d.p);return dp>=xMin-1&&dp<=xMax+1;});
+  const tA=vis.map(d=>toT(d.td));
+  let yMin=Math.min(...tA),yMax=Math.max(...tA);
+  const pd=Math.max(2,(yMax-yMin)*0.1);
+  yMin=Math.floor((yMin-pd)/5)*5;
+  yMax=Math.ceil((yMax+pd)/5)*5;
+  if(yMin===yMax){yMin-=5;yMax+=5;}
+  return{xMin,xMax,yMin,yMax};
+}
+
+function niceG(a,b,n){
+  const raw=(b-a)/n;
+  const mag=Math.pow(10,Math.floor(Math.log10(Math.abs(raw)||1)));
+  const nice=[1,2,2.5,5,10].map(s=>s*mag).find(s=>s>=raw)||raw;
+  const out=[];let v=Math.ceil((a-1e-9)/nice)*nice;
+  while(v<=b+1e-9){out.push(parseFloat(v.toFixed(8)));v+=nice;}
+  return out;
+}
+
+function xP(v,vr){return PAD.l+(v-vr.xMin)/(vr.xMax-vr.xMin)*(CW-PAD.l-PAD.r);}
+function yP(v,vr){return PAD.t+(vr.yMax-v)/(vr.yMax-vr.yMin)*(CH-PAD.t-PAD.b);}
+
+function render(){
+  if(!lastR)return;
+  const imp=units==='imperial';
+  const toP=v=>imp?b2p(v):v,toT=v=>imp?c2f(v):v;
+  const pU=imp?'psi':'bar',tU=imp?'°F':'°C';
+  const vr=getVR();
+  const pw=CW-PAD.l-PAD.r,ph=CH-PAD.t-PAD.b;
+  ct.clearRect(0,0,CW,CH);
+
+  // plot bg
+  ct.fillStyle='#f8f8f8';ct.fillRect(PAD.l,PAD.t,pw,ph);
+
+  // Y grid
+  const yTk=niceG(vr.yMin,vr.yMax,6);
+  const usedY=new Set();
+  ct.font='10.5px Segoe UI,system-ui,sans-serif';
+  ct.textAlign='right';ct.textBaseline='middle';
+  yTk.forEach(v=>{
+    if(v<vr.yMin-.01||v>vr.yMax+.01)return;
+    const py=yP(v,vr);
+    ct.save();ct.beginPath();ct.rect(PAD.l,PAD.t,pw,ph);ct.clip();
+    ct.strokeStyle='#e0e0e0';ct.lineWidth=0.8;
+    ct.beginPath();ct.moveTo(PAD.l,py);ct.lineTo(PAD.l+pw,py);ct.stroke();
+    ct.restore();
+    const rnd=Math.round(py);
+    let close=false;usedY.forEach(u=>{if(Math.abs(u-rnd)<13)close=true;});
+    if(!close){usedY.add(rnd);ct.fillStyle='#888';ct.fillText(v.toFixed(0)+' '+tU,PAD.l-4,py);}
+  });
+
+  // X grid
+  const xTk=niceG(vr.xMin,vr.xMax,7);
+  ct.textAlign='center';ct.textBaseline='top';ct.fillStyle='#888';
+  xTk.forEach(v=>{
+    if(v<vr.xMin-.01||v>vr.xMax+.01)return;
+    const px=xP(v,vr);
+    ct.save();ct.beginPath();ct.rect(PAD.l,PAD.t,pw,ph);ct.clip();
+    ct.strokeStyle='#e0e0e0';ct.lineWidth=0.8;
+    ct.beginPath();ct.moveTo(px,PAD.t);ct.lineTo(px,PAD.t+ph);ct.stroke();
+    ct.restore();
+    ct.fillStyle='#888';ct.fillText(v.toFixed(0),px,PAD.t+ph+5);
+  });
+
+  // 0°C ref line
+  if(0>vr.yMin&&0<vr.yMax){
+    const py0=yP(0,vr);
+    ct.save();ct.beginPath();ct.rect(PAD.l,PAD.t,pw,ph);ct.clip();
+    ct.strokeStyle='rgba(80,80,200,0.45)';ct.lineWidth=1;ct.setLineDash([5,4]);
+    ct.beginPath();ct.moveTo(PAD.l,py0);ct.lineTo(PAD.l+pw,py0);ct.stroke();
+    ct.setLineDash([]);ct.restore();
+  }
+
+  // Curve
+  ct.save();ct.beginPath();ct.rect(PAD.l,PAD.t,pw,ph);ct.clip();
+  const vis=lastR.pts.filter(d=>{const dp=toP(d.p);return dp>=vr.xMin-5&&dp<=vr.xMax+5;});
+  if(vis.length>1){
+    const gr=ct.createLinearGradient(0,PAD.t,0,PAD.t+ph);
+    gr.addColorStop(0,'rgba(204,0,0,0.16)');gr.addColorStop(1,'rgba(204,0,0,0.02)');
+    ct.beginPath();
+    vis.forEach((d,i)=>{const px=xP(toP(d.p),vr),py=yP(toT(d.td),vr);i===0?ct.moveTo(px,py):ct.lineTo(px,py);});
+    ct.lineTo(xP(toP(vis[vis.length-1].p),vr),PAD.t+ph);
+    ct.lineTo(xP(toP(vis[0].p),vr),PAD.t+ph);
+    ct.closePath();ct.fillStyle=gr;ct.fill();
+    ct.beginPath();
+    vis.forEach((d,i)=>{const px=xP(toP(d.p),vr),py=yP(toT(d.td),vr);i===0?ct.moveTo(px,py):ct.lineTo(px,py);});
+    ct.strokeStyle='#CC0000';ct.lineWidth=2;ct.lineJoin='round';ct.stroke();
+  }
+
+  // Input marker
+  const pIn=toP(lastR.Pb),tdIn=toT(lastR.Td);
+  if(pIn>=vr.xMin&&pIn<=vr.xMax&&tdIn>=vr.yMin&&tdIn<=vr.yMax){
+    const mx=xP(pIn,vr),my=yP(tdIn,vr);
+    ct.strokeStyle='rgba(60,60,200,0.35)';ct.lineWidth=1;ct.setLineDash([4,4]);
+    ct.beginPath();ct.moveTo(mx,PAD.t);ct.lineTo(mx,PAD.t+ph);ct.stroke();
+    ct.setLineDash([]);
+    ct.fillStyle='#CC0000';ct.beginPath();ct.arc(mx,my,5,0,Math.PI*2);ct.fill();
+    ct.fillStyle='#fff';ct.beginPath();ct.arc(mx,my,2.2,0,Math.PI*2);ct.fill();
+  }
+
+  // Drag band
+  if(drag.on){
+    const x1=Math.min(drag.sx,drag.cx),x2=Math.max(drag.sx,drag.cx);
+    if(x2-x1>3){
+      ct.fillStyle='rgba(204,0,0,0.07)';ct.fillRect(x1,PAD.t,x2-x1,ph);
+      ct.strokeStyle='rgba(204,0,0,0.65)';ct.lineWidth=1.5;ct.setLineDash([]);
+      ct.beginPath();ct.moveTo(x1,PAD.t);ct.lineTo(x1,PAD.t+ph);ct.stroke();
+      ct.beginPath();ct.moveTo(x2,PAD.t);ct.lineTo(x2,PAD.t+ph);ct.stroke();
+    }
+  }
+
+  // Hover crosshair
+  if(hX!==null&&hX>=PAD.l&&hX<=PAD.l+pw&&!drag.on){
+    const rPd=(hX-PAD.l)/pw*(vr.xMax-vr.xMin)+vr.xMin;
+    const rPb=imp?p2b(rPd):rPd;
+    const td=dewPt(lastR.xw*(rPb+1.01325)*1000);
+    const tdD=imp?c2f(td):td;
+    if(tdD>=vr.yMin&&tdD<=vr.yMax){
+      const cpy=yP(tdD,vr);
+      ct.strokeStyle='rgba(0,0,0,0.14)';ct.lineWidth=1;ct.setLineDash([3,4]);
+      ct.beginPath();ct.moveTo(hX,PAD.t);ct.lineTo(hX,PAD.t+ph);ct.stroke();
+      ct.beginPath();ct.moveTo(PAD.l,cpy);ct.lineTo(PAD.l+pw,cpy);ct.stroke();
+      ct.setLineDash([]);
+      ct.fillStyle='#CC0000';ct.beginPath();ct.arc(hX,cpy,3.5,0,Math.PI*2);ct.fill();
+      const tt=document.getElementById('tip');
+      document.getElementById('tipP').textContent=`${rPd.toFixed(1)} ${pU}`;
+      document.getElementById('tipT').textContent=`Td = ${tdD.toFixed(2)} ${tU}`;
+      tt.style.opacity='1';
+      let tx=hX+12,ty=cpy-40;
+      if(hX>CW-155)tx=hX-12-tt.offsetWidth;
+      if(ty<PAD.t+2)ty=PAD.t+2;
+      tt.style.left=tx+'px';tt.style.top=ty+'px';
+    }else document.getElementById('tip').style.opacity='0';
+  }else if(!drag.on)document.getElementById('tip').style.opacity='0';
+
+  ct.restore();
+  ct.strokeStyle='#ccc';ct.lineWidth=1;ct.strokeRect(PAD.l,PAD.t,pw,ph);
+
+  // Axis labels
+  ct.save();
+  ct.translate(13,PAD.t+ph/2);ct.rotate(-Math.PI/2);
+  ct.fillStyle='#666';ct.font='bold 10px Segoe UI,system-ui,sans-serif';
+  ct.textAlign='center';ct.textBaseline='middle';
+  ct.fillText(`Dew Point [${tU}]`,0,0);
+  ct.restore();
+  ct.fillStyle='#666';ct.font='bold 10px Segoe UI,system-ui,sans-serif';
+  ct.textAlign='center';ct.textBaseline='bottom';
+  ct.fillText(`Gauge Pressure [${pU}]`,PAD.l+pw/2,CH-3);
+}
+
+/* ══ MOUSE / TOUCH ══ */
+function getX(e){const r=cv.getBoundingClientRect();return((e.touches?e.touches[0]:e).clientX-r.left);}
+cv.addEventListener('mousedown',e=>{
+  if(e.button!==0)return;
+  const x=getX(e);if(x<PAD.l||x>CW-PAD.r)return;
+  const now=Date.now();
+  if(now-dblT<300){resetZoom();dblT=0;return;}
+  dblT=now;drag={on:true,sx:x,cx:x};
+});
+cv.addEventListener('mousemove',e=>{
+  const x=getX(e);
+  if(drag.on){drag.cx=Math.max(PAD.l,Math.min(CW-PAD.r,x));render();}
+  else{hX=(x>=PAD.l&&x<=CW-PAD.r)?x:null;if(lastR)render();}
+});
+cv.addEventListener('mouseup',e=>{
+  if(!drag.on)return;
+  const x=Math.max(PAD.l,Math.min(CW-PAD.r,getX(e)));
+  if(Math.abs(x-drag.sx)>6&&lastR){
+    const vr=getVR(),pw=CW-PAD.l-PAD.r;
+    const x1=Math.min(drag.sx,x),x2=Math.max(drag.sx,x);
+    zX={min:Math.max(0,(x1-PAD.l)/pw*(vr.xMax-vr.xMin)+vr.xMin),
+         max:(x2-PAD.l)/pw*(vr.xMax-vr.xMin)+vr.xMin};
+    document.getElementById('zRst').style.display='block';
+  }
+  drag.on=false;if(lastR)render();
+});
+cv.addEventListener('mouseleave',()=>{drag.on=false;hX=null;document.getElementById('tip').style.opacity='0';if(lastR)render();});
+/* ══ TOUCH (mobile): single=cursore, pinch=zoom ══ */
+let pinch={on:false,d0:0,cx:0,vr0:null};
+function tDist(e){
+  const dx=e.touches[0].clientX-e.touches[1].clientX;
+  const dy=e.touches[0].clientY-e.touches[1].clientY;
+  return Math.sqrt(dx*dx+dy*dy);
+}
+function tMidX(e){
+  const r=cv.getBoundingClientRect();
+  return((e.touches[0].clientX+e.touches[1].clientX)/2-r.left);
+}
+cv.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(e.touches.length===2){
+    // Inizio pinch
+    pinch.on=true;
+    pinch.d0=tDist(e);
+    pinch.cx=tMidX(e);
+    const vr=getVR();
+    pinch.vr0={xMin:vr.xMin,xMax:vr.xMax};
+    drag.on=false;hX=null;
+  }else{
+    // Tocco singolo: mostra cursore
+    pinch.on=false;
+    const x=getX(e);
+    hX=(x>=PAD.l&&x<=CW-PAD.r)?x:null;
+    drag.on=false;
+    if(lastR)render();
+  }
+},{passive:false});
+
+cv.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(e.touches.length===2&&pinch.on){
+    // Pinch zoom sull'asse X
+    const d=tDist(e);
+    const scale=pinch.d0/d;
+    const vr0=pinch.vr0;
+    const pw=CW-PAD.l-PAD.r;
+    const frac=Math.max(0,Math.min(1,(pinch.cx-PAD.l)/pw));
+    const cxData=vr0.xMin+frac*(vr0.xMax-vr0.xMin);
+    const range0=vr0.xMax-vr0.xMin;
+    const fullRange=units==='imperial'?b2p(500):500;
+    const newRange=Math.min(Math.max(range0*scale,5),fullRange);
+    let newMin=cxData-frac*newRange;
+    let newMax=newMin+newRange;
+    if(newMin<0){newMax-=newMin;newMin=0;}
+    if(newMax>fullRange){newMin-=(newMax-fullRange);newMax=fullRange;newMin=Math.max(0,newMin);}
+    zX={min:newMin,max:newMax};
+    document.getElementById('zRst').style.display='block';
+    if(lastR)render();
+  }else if(e.touches.length===1&&!pinch.on){
+    // Tocco singolo in movimento: aggiorna cursore
+    const x=getX(e);
+    hX=(x>=PAD.l&&x<=CW-PAD.r)?x:null;
+    if(lastR)render();
+  }
+},{passive:false});
+
+cv.addEventListener('touchend',e=>{
+  e.preventDefault();
+  if(e.touches.length<2)pinch.on=false;
+  if(e.touches.length===0){
+    hX=null;drag.on=false;
+    if(lastR)render();
+  }else if(e.touches.length===1){
+    const x=getX(e);
+    hX=(x>=PAD.l&&x<=CW-PAD.r)?x:null;
+    if(lastR)render();
+  }
+},{passive:false});
+function resetZoom(){zX={min:null,max:null};document.getElementById('zRst').style.display='none';if(lastR)render();}
+window.addEventListener('resize',()=>resize());
+
+/* ══ TABLE ══ */
+function buildTbl(r){
+  const imp=units==='imperial';
+  const pU=imp?'psi':'bar',tU=imp?'°F':'°C',aU=imp?'gr/ft³':'g/m³';
+  const Pd=imp?b2p(r.Pb):r.Pb,Tdd=imp?c2f(r.Td):r.Td;
+  const Tdad=imp?c2f(r.Tda):r.Tda,ahd=imp?g2g(r.ah):r.ah;
+  const t=L[lang];
+  const rows=[
+    [t.r[0][0],`${Pd.toFixed(2)} ${pU}`,  t.r[0][1],`${Tdad.toFixed(2)} ${tU}`,   t.no[0]+' / '+t.no[1]],
+    [t.r[0][2],`${Tdd.toFixed(2)} ${tU}`,  t.r[0][3],`${r.ew.toFixed(4)} hPa`,     t.no[2]+' / '+t.no[3]],
+    [t.r[1][0],`${r.pv.toFixed(3)} ppm(v)`,t.r[1][1],`${r.pw.toFixed(3)} ppm(w)`,  t.no[4]+' / '+t.no[5]],
+    [t.r[1][2],`${ahd.toFixed(3)} ${aU}`,  t.r[1][3],`${r.RH.toFixed(2)} %`,       t.no[6]+' / '+t.no[7]],
+  ];
+  const tb=document.getElementById('tbody');
+  tb.innerHTML='';
+  rows.forEach((row,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="tn">${row[0]}</td><td class="tv${i<2?' r':''}">${row[1]}</td>`
+                +`<td class="tn">${row[2]}</td><td class="tv">${row[3]}</td>`
+                +`<td class="tnote">${row[4]}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+/* ══ UPDATE ══ */
+function update(){
+  const imp=units==='imperial';
+  const rP=parseFloat(document.getElementById('iP').value);
+  const rT=parseFloat(document.getElementById('iT').value);
+  const rG=parseFloat(document.getElementById('iG').value);
+  if(isNaN(rP)||isNaN(rT)||isNaN(rG))return;
+  const Pb=imp?p2b(rP):rP,Td=imp?f2c(rT):rT,Tg=imp?f2c(rG):rG;
+  if(Pb<0||Pb>9999)return;
+  lastR=compute(Pb,Td,Tg);render();buildTbl(lastR);
+}
+
+/* ══ LANGUAGE ══ */
+function toggleLang(e){
+  e.stopPropagation();
+  const b=document.getElementById('LB'),m=document.getElementById('LM');
+  const o=m.classList.contains('open');
+  b.classList.toggle('open',!o);m.classList.toggle('open',!o);
+}
+document.addEventListener('click',()=>{
+  document.getElementById('LB').classList.remove('open');
+  document.getElementById('LM').classList.remove('open');
+});
+function setLang(l){
+  lang=l;const t=L[l];
+  document.getElementById('LF').textContent=t.f;
+  document.getElementById('LN').textContent=t.n;
+  document.getElementById('LB').classList.remove('open');
+  document.getElementById('LM').classList.remove('open');
+  document.documentElement.dir=t.dir||'ltr';
+  document.getElementById('hdr-t').textContent=t.hT;
+  document.getElementById('hdr-s').textContent=t.hS;
+  document.getElementById('panel-lbl').textContent=t.pnl;
+  document.getElementById('lP').textContent=t.lP;
+  document.getElementById('lT').textContent=t.lT;
+  document.getElementById('lG').textContent=t.lG;
+  document.getElementById('hP').textContent=t.hP;
+  document.getElementById('hT').textContent=t.hT2;
+  document.getElementById('hG').textContent=t.hG;
+  document.getElementById('chartLbl').textContent=t.cL;
+  document.getElementById('zHint').textContent=t.zH;
+  document.getElementById('zRst').textContent=t.zR;
+  t.th.forEach((v,i)=>document.getElementById('th'+(i+1)).textContent=v);
+  document.getElementById('ftr').textContent=t.ft;
+  document.querySelectorAll('.lang-opt').forEach(o=>o.classList.toggle('active',o.dataset.l===l));
+  update();
+}
+
+/* ══ UNITS ══ */
+function setU(u){
+  if(u===units)return;
+  const imp=(u==='imperial');
+  const f=imp?[b2p,c2f,c2f]:[p2b,f2c,f2c];
+  ['iP','iT','iG'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    el.value=f[i](parseFloat(el.value)||0).toFixed(1);
+  });
+  units=u;
+  document.getElementById('btnM').classList.toggle('active',u==='metric');
+  document.getElementById('btnI').classList.toggle('active',u==='imperial');
+  document.getElementById('uP').textContent=imp?'psi':'bar';
+  document.getElementById('uT').textContent=imp?'°F':'°C';
+  document.getElementById('uG').textContent=imp?'°F':'°C';
+  zX={min:null,max:null};
+  document.getElementById('zRst').style.display='none';
+  update();
+}
+
+/* ══ INIT ══ */
+(function(){
+  const m=document.getElementById('LM');
+  Object.entries(L).forEach(([k,v])=>{
+    const d=document.createElement('div');
+    d.className='lang-opt'+(k==='IT'?' active':'');
+    d.dataset.l=k;
+    d.innerHTML=`<span class="flag">${v.f}</span><span>${v.n}</span>`;
+    d.addEventListener('click',e=>{e.stopPropagation();setLang(k);});
+    m.appendChild(d);
+  });
+  ['iP','iT','iG'].forEach(id=>document.getElementById(id).addEventListener('input',update));
+  resize();
+  setLang('IT');
+})();
+</script>
+</body>
+</html>
